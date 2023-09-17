@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+</body>
+<script>
+    wsBinaryHeaderList = [{
+        "name": "Header Length",
+        "key": "headerLen",
+        "bytes": 2,
+        "offset": 4,
+        "value": 16
+    }, {"name": "Protocol Version", "key": "ver", "bytes": 2, "offset": 6, "value": 1}, {
+        "name": "Operation",
+        "key": "op",
+        "bytes": 4,
+        "offset": 8,
+        "value": 1
+    }, {"name": "Sequence Id", "key": "seq", "bytes": 4, "offset": 12, "value": 1}]
+
+    function getEncoder() {
+        return window.TextEncoder ? new window.TextEncoder : {
+            encode: function (t) {
+                for (var e = new ArrayBuffer(t.length), n = new Uint8Array(e), o = 0, i = t.length; o < i; o++)
+                    n[o] = t.charCodeAt(o);
+                return e
+            }
+        }
+    }
+
+    function mergeArrayBuffer(t, e) {
+        var n = new Uint8Array(t)
+            , o = new Uint8Array(e)
+            , i = new Uint8Array(n.byteLength + o.byteLength);
+        return i.set(n, 0),
+            i.set(o, n.byteLength),
+            i.buffer
+    }
+
+    function a(t, e) {
+        this.encoder || (this.encoder = getEncoder());
+        var n = new ArrayBuffer(16)
+            , i = new DataView(n, 0)
+            , s = this.encoder.encode(t);
+        return i.setInt32(0, 16 + s.byteLength),
+            this.wsBinaryHeaderList[2].value = e,
+            this.wsBinaryHeaderList.forEach(function (t) {
+                4 === t.bytes ? i.setInt32(t.offset, t.value) : 2 === t.bytes && i.setInt16(t.offset, t.value)
+            }),
+            mergeArrayBuffer(n, s)
+    }
+
+
+    function convertToObject(t) {
+        var e = new DataView(t)
+            , n = {
+            body: []
+        };
+        if (n.packetLen = e.getInt32(0),
+            this.wsBinaryHeaderList.forEach(function (t) {
+                4 === t.bytes ? n[t.key] = e.getInt32(t.offset) : 2 === t.bytes && (n[t.key] = e.getInt16(t.offset))
+            }),
+        n.packetLen < t.byteLength && this.convertToObject(t.slice(0, n.packetLen)),
+        this.decoder || (this.decoder = getEncoder()),
+        !n.op || 5 !== n.op && n.op !== 8)
+            n.op && 3 === n.op && (n.body = {
+                count: e.getInt32(16)
+            });
+        else
+            for (var i = 0, s = n.packetLen, a = "", u = ""; i < t.byteLength; i += s) {
+                s = e.getInt32(i),
+                    a = e.getInt16(i + 4);
+                try {
+                    if (n.ver === 0) {
+                        var c = this.decoder.decode(t.slice(i + a, i + s));
+                        u = 0 !== c.length ? JSON.parse(c) : null
+                    } else if (n.ver === 3) {
+                        var l = t.slice(i + a, i + s)
+                            , h = BrotliDecode(new Uint8Array(l));
+                        u = this.convertToObject(h.buffer).body
+                    }
+                    u && n.body.push(u)
+                } catch (e) {
+                    console.log("decode body error:")
+                    // this.options.onLogger("decode body error:", new Uint8Array(t), n, e)
+                }
+            }
+        return n
+    }
+
+
+    function hexStringToArrayBuffer(hexString) {
+        let byteArray = [];
+
+        for (let i = 0; i < hexString.length; i += 2) {
+            byteArray.push(parseInt(hexString.substring(i, i + 2), 16));
+        }
+
+        let uint8Array = new Uint8Array(byteArray);
+        return uint8Array.buffer;
+    }
+    hexStr = '0000007e0010000300000005000000001b7100181c0976acc968291edcc9a73fb72479bc0a904db83592fe8d1325ca240b8233747472783e201f6fe784a2b69c939c729a4869d09280f144ef144595140ae4a945102531700f2ed7f15ee146807b4190360954cdb24d01cd5e3a0055d2eeb90369c4b8d7f53bfd97a66d01'
+    ht = hexStringToArrayBuffer(hexStr)
+    console.log(ht)
+    console.log(convertToObject(ht))
+</script>
+</html>
